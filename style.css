@@ -49,9 +49,11 @@
 
     /* ─── FORM ─── */
     .fg{margin-bottom:14px}
-    .fl{display:block;font-size:11px;font-weight:700;color:var(--t2);margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase}
-    .fc{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;font-family:'Poppins',sans-serif;color:var(--t1);background:var(--white);outline:none;transition:border-color var(--tr),box-shadow var(--tr)}
+    .fl{display:block;font-size:13px;font-weight:700;color:var(--t2);margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase}
+    .fc{width:100%;padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:14px;font-family:'Poppins',sans-serif;color:var(--t1);background:var(--white);outline:none;transition:border-color var(--tr),box-shadow var(--tr)}
     .fc:focus{border-color:var(--gm);box-shadow:0 0 0 3px rgba(45,154,87,.12)}
+    .fc[aria-invalid="true"]{border-color:var(--red);box-shadow:0 0 0 3px rgba(199,91,91,.15)}
+    .field-error{font-size:13px;color:var(--red);margin-top:5px}
     .fc::placeholder{color:var(--t3)}
     select.fc{cursor:pointer;appearance:none;background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%238796AA' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 10px center / 20px}
     textarea.fc{resize:vertical;min-height:76px}
@@ -180,12 +182,12 @@
     .tx-ico{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
     .tx-ico svg{width:18px;height:18px}
     .tx-n{font-weight:600;font-size:13px}
-    .tx-c{font-size:11px;color:var(--t3)}
+    .tx-c{font-size:13px;color:var(--t3)}
     .amt-in{color:var(--gm);font-weight:700}
     .amt-out{color:var(--red);font-weight:700}
 
     /* ─── BADGES ─── */
-    .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+    .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:13px;font-weight:700}
     .badge svg{width:11px;height:11px;fill:currentColor}
     .b-g{background:var(--gl);color:var(--gd)}
     .b-r{background:var(--red-bg);color:var(--red)}
@@ -281,7 +283,7 @@
     .srow{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
     .srow:last-child{border-bottom:none}
     .srow-l{font-size:13px;font-weight:500}
-    .srow-d{font-size:11px;color:var(--t3);margin-top:2px}
+    .srow-d{font-size:13px;color:var(--t3);margin-top:2px}
 
     /* ─── MODAL ─── */
     .modal-bd{display:none;position:fixed;inset:0;background:rgba(10,18,30,.5);z-index:900;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
@@ -319,6 +321,16 @@
     .csw{width:28px;height:28px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform var(--tr),border-color var(--tr)}
     .csw:hover{transform:scale(1.15)}
     .csw.sel{border-color:var(--navy);box-shadow:0 0 0 2px var(--white),0 0 0 4px var(--navy)}
+
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#16181b;--white:#22262a;--t1:#f6f3ef;--t2:#d1c7bf;--t3:#a99f97;
+        --border:#3a3f45;--border2:#4a5159;--navy:#101214;--gl:#173626;
+        --red-bg:#3a1f22;--amber-bg:#332719;--blue-bg:#172e35;
+      }
+      .sc.green{background:linear-gradient(135deg,#256d4a 0%,#1f5b3f 100%)}
+      tbody tr:hover td{background:#2a2f35}
+    }
 
     /* ─── ADMIN ─── */
     .admin-pill{display:inline-flex;align-items:center;gap:5px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-b);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700}

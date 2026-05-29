@@ -78,7 +78,7 @@
         <div class="auth-sub">Faça login para continuar</div>
         <div class="fg"><label class="fl" for="loginEmail">E-mail</label><input class="fc" type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email"></div>
         <div class="fg"><label class="fl" for="loginPass">Senha</label><input class="fc" type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
-        <div style="text-align:right;margin-bottom:16px"><a class="lnk" href="#">Esqueceu sua senha?</a></div>
+        <div style="text-align:right;margin-bottom:16px"><a class="lnk" href="#" onclick="forgotPassword(event)">Esqueceu sua senha?</a></div>
         <button class="btn btn-p btn-full" onclick="doLogin()">Entrar</button>
         <div class="divider">ou</div>
         <button class="btn btn-google" onclick="toast('Login com Google não está disponível nesta versão de demonstração.','')">
@@ -202,7 +202,7 @@
           </div>
           <div class="card">
             <div class="card-h"><div class="card-t">Receitas × Despesas</div><span class="card-st">Últimos 6 meses</span></div>
-            <div class="bar-chart" role="img" aria-label="Gráfico receitas vs despesas 6 meses">
+            <div class="bar-chart" id="barChart" role="img" aria-label="Gráfico receitas vs despesas 6 meses">
               <div class="bar-group"><div class="bar inc" style="height:70%"><span class="bar-tip">Receita: R$5.200</span></div><div class="bar exp" style="height:55%"><span class="bar-tip">Despesa: R$3.600</span></div></div>
               <div class="bar-group"><div class="bar inc" style="height:58%"><span class="bar-tip">Receita: R$4.800</span></div><div class="bar exp" style="height:63%"><span class="bar-tip">Despesa: R$4.100</span></div></div>
               <div class="bar-group"><div class="bar inc" style="height:74%"><span class="bar-tip">Receita: R$5.500</span></div><div class="bar exp" style="height:48%"><span class="bar-tip">Despesa: R$3.200</span></div></div>
@@ -210,7 +210,7 @@
               <div class="bar-group"><div class="bar inc" style="height:79%"><span class="bar-tip">Receita: R$5.900</span></div><div class="bar exp" style="height:44%"><span class="bar-tip">Despesa: R$3.100</span></div></div>
               <div class="bar-group"><div class="bar inc cur" style="height:85%"><span class="bar-tip">Mês atual</span></div><div class="bar exp cur" style="height:57%"><span class="bar-tip">Mês atual</span></div></div>
             </div>
-            <div class="chart-labels"><span class="cl">Jan</span><span class="cl">Fev</span><span class="cl">Mar</span><span class="cl">Abr</span><span class="cl">Mai</span><span class="cl cur">Jun</span></div>
+            <div class="chart-labels" id="barLabels"><span class="cl">Jan</span><span class="cl">Fev</span><span class="cl">Mar</span><span class="cl">Abr</span><span class="cl">Mai</span><span class="cl cur">Jun</span></div>
             <div class="chart-leg"><div class="cli"><div class="cli-dot" style="background:var(--gm)"></div>Receitas</div><div class="cli"><div class="cli-dot" style="background:#F87171"></div>Despesas</div></div>
           </div>
         </div>
@@ -337,15 +337,15 @@
         <div class="ph"><div><h2>Área Administrativa</h2><p>Acesso restrito — apenas administradores</p></div><span class="admin-pill"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg> Admin</span></div>
         <div class="alert al-w" style="margin-bottom:18px"><svg viewBox="0 0 24 24"><use href="#i-shield"/></svg><div class="alert-body"><div class="alert-t">Área restrita</div><div class="alert-d">Ações nesta área afetam todos os usuários. Prossiga com cuidado.</div></div></div>
         <div class="g4" style="margin-bottom:18px">
-          <div class="sc"><div class="sc-ico inc"><svg viewBox="0 0 24 24"><use href="#i-group"/></svg></div><div class="sc-lbl">Usuários ativos</div><div class="sc-val">247</div><div class="sc-meta">+12 esta semana</div></div>
-          <div class="sc"><div class="sc-ico exp"><svg viewBox="0 0 24 24"><use href="#i-swap"/></svg></div><div class="sc-lbl">Lançamentos hoje</div><div class="sc-val">1.842</div><div class="sc-meta">+8% vs ontem</div></div>
-          <div class="sc"><div class="sc-ico sav"><svg viewBox="0 0 24 24"><use href="#i-target"/></svg></div><div class="sc-lbl">Metas criadas</div><div class="sc-val">638</div><div class="sc-meta">Total geral</div></div>
+          <div class="sc"><div class="sc-ico inc"><svg viewBox="0 0 24 24"><use href="#i-group"/></svg></div><div class="sc-lbl">Usuários ativos</div><div class="sc-val" id="adminUsersActive">0</div><div class="sc-meta">Base local</div></div>
+          <div class="sc"><div class="sc-ico exp"><svg viewBox="0 0 24 24"><use href="#i-swap"/></svg></div><div class="sc-lbl">Lançamentos hoje</div><div class="sc-val" id="adminLancToday">0</div><div class="sc-meta">Base local</div></div>
+          <div class="sc"><div class="sc-ico sav"><svg viewBox="0 0 24 24"><use href="#i-target"/></svg></div><div class="sc-lbl">Metas criadas</div><div class="sc-val" id="adminMetasTotal">0</div><div class="sc-meta">Total geral</div></div>
           <div class="sc green"><div class="sc-ico"><svg viewBox="0 0 24 24"><use href="#i-chart"/></svg></div><div class="sc-lbl">Uptime</div><div class="sc-val">99,9%</div><div class="sc-meta">Últimos 30 dias</div></div>
         </div>
         <div class="g2" style="align-items:start">
           <div class="card">
             <div class="card-h"><div class="card-t">Gerenciar usuários</div><button class="btn btn-g btn-ico" onclick="toast('Lista atualizada!','ok')" aria-label="Atualizar"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--t2)"><use href="#i-refresh"/></svg></button></div>
-            <div class="tw"><table aria-label="Usuários do sistema"><thead><tr><th>Nome</th><th>Status</th><th>Último acesso</th><th style="text-align:center">Ações</th></tr></thead><tbody>
+            <div class="tw"><table aria-label="Usuários do sistema"><thead><tr><th scope="col">Nome</th><th scope="col">Status</th><th scope="col">Criado em</th><th scope="col" style="text-align:center">Ações</th></tr></thead><tbody id="adminUsers">
               <tr><td>Lucas Demo</td><td><span class="badge b-g"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg>Ativo</span></td><td>Agora</td><td class="actions" style="justify-content:center"><button class="btn btn-d btn-sm" onclick="toast('Ação indisponível em demo.','err')"><svg viewBox="0 0 24 24"><use href="#i-close"/></svg> Desativar</button></td></tr>
               <tr><td>Maria Santos</td><td><span class="badge b-g"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg>Ativo</span></td><td>Há 2h</td><td class="actions" style="justify-content:center"><button class="btn btn-d btn-sm" onclick="toast('Usuário desativado','err')"><svg viewBox="0 0 24 24"><use href="#i-close"/></svg> Desativar</button></td></tr>
               <tr><td>João Pereira</td><td><span class="badge b-gr">Inativo</span></td><td>Há 3 dias</td><td class="actions" style="justify-content:center"><button class="btn btn-p btn-sm" onclick="toast('Usuário ativado!','ok')"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg> Ativar</button></td></tr>
@@ -415,18 +415,18 @@
     <div class="fg">
       <label class="fl">Cor</label>
       <div class="col-grid" role="group" aria-label="Cor da categoria">
-        <button class="csw sel" data-cor="#24784F" style="background:#24784F" onclick="setColor(this,'#24784F')" title="Verde" aria-label="Verde"></button>
-        <button class="csw"     data-cor="#0891B2" style="background:#0891B2" onclick="setColor(this,'#0891B2')" title="Azul" aria-label="Azul"></button>
-        <button class="csw"     data-cor="#7C3AED" style="background:#7C3AED" onclick="setColor(this,'#7C3AED')" title="Roxo" aria-label="Roxo"></button>
-        <button class="csw"     data-cor="#DB2777" style="background:#DB2777" onclick="setColor(this,'#DB2777')" title="Rosa" aria-label="Rosa"></button>
-        <button class="csw"     data-cor="#EA580C" style="background:#EA580C" onclick="setColor(this,'#EA580C')" title="Laranja" aria-label="Laranja"></button>
-        <button class="csw"     data-cor="#D97706" style="background:#D97706" onclick="setColor(this,'#D97706')" title="Âmbar" aria-label="Âmbar"></button>
-        <button class="csw"     data-cor="#DC2626" style="background:#DC2626" onclick="setColor(this,'#DC2626')" title="Vermelho" aria-label="Vermelho"></button>
-        <button class="csw"     data-cor="#EBC7B3" style="background:#EBC7B3" onclick="setColor(this,'#EBC7B3')" title="Bege" aria-label="Bege"></button>
-        <button class="csw"     data-cor="#059669" style="background:#059669" onclick="setColor(this,'#059669')" title="Esmeralda" aria-label="Esmeralda"></button>
-        <button class="csw"     data-cor="#64748B" style="background:#64748B" onclick="setColor(this,'#64748B')" title="Cinza" aria-label="Cinza"></button>
-        <button class="csw"     data-cor="#0F172A" style="background:#0F172A" onclick="setColor(this,'#0F172A')" title="Escuro" aria-label="Escuro"></button>
-        <button class="csw"     data-cor="#9333EA" style="background:#9333EA" onclick="setColor(this,'#9333EA')" title="Violeta" aria-label="Violeta"></button>
+        <button class="csw sel" aria-pressed="true" data-cor="#24784F" style="background:#24784F" onclick="setColor(this,'#24784F')" title="Verde" aria-label="Verde"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#0891B2" style="background:#0891B2" onclick="setColor(this,'#0891B2')" title="Azul" aria-label="Azul"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#7C3AED" style="background:#7C3AED" onclick="setColor(this,'#7C3AED')" title="Roxo" aria-label="Roxo"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#DB2777" style="background:#DB2777" onclick="setColor(this,'#DB2777')" title="Rosa" aria-label="Rosa"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#EA580C" style="background:#EA580C" onclick="setColor(this,'#EA580C')" title="Laranja" aria-label="Laranja"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#D97706" style="background:#D97706" onclick="setColor(this,'#D97706')" title="Âmbar" aria-label="Âmbar"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#DC2626" style="background:#DC2626" onclick="setColor(this,'#DC2626')" title="Vermelho" aria-label="Vermelho"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#EBC7B3" style="background:#EBC7B3" onclick="setColor(this,'#EBC7B3')" title="Bege" aria-label="Bege"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#059669" style="background:#059669" onclick="setColor(this,'#059669')" title="Esmeralda" aria-label="Esmeralda"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#64748B" style="background:#64748B" onclick="setColor(this,'#64748B')" title="Cinza" aria-label="Cinza"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#0F172A" style="background:#0F172A" onclick="setColor(this,'#0F172A')" title="Escuro" aria-label="Escuro"></button>
+        <button class="csw" aria-pressed="false"     data-cor="#9333EA" style="background:#9333EA" onclick="setColor(this,'#9333EA')" title="Violeta" aria-label="Violeta"></button>
       </div>
     </div>
     <div class="modal-f"><button class="btn btn-o" onclick="closeModal('mCat')">Cancelar</button><button class="btn btn-p" onclick="saveCat()"><svg viewBox="0 0 24 24"><use href="#i-save"/></svg> Salvar categoria</button></div>
@@ -471,35 +471,23 @@ function salvarPerfil() {
   toast('Dados salvos com sucesso!', 'ok');
 }
 
-function alterarSenha() {
+async function alterarSenha() {
   var oldP  = document.getElementById('oldP').value;
   var newP  = document.getElementById('newP').value;
   var confP = document.getElementById('confP').value;
   if (!oldP || !newP || !confP) { toast('Preencha todos os campos de senha.', 'err'); return; }
-  if (currentUser && oldP !== currentUser.senha) { toast('Senha atual incorreta.', 'err'); return; }
+  var db = getDB(); await migratePasswords(db); var u = db.usuarios.find(function(u){ return u.id === currentUser.id; }); if (!u || u.senhaHash !== await hashSenha(oldP)) { toast('Senha atual incorreta.', 'err'); return; }
   if (newP.length < 6) { toast('A nova senha deve ter no mínimo 6 caracteres.', 'err'); return; }
   if (newP !== confP)  { toast('As senhas não conferem.', 'err'); return; }
-  var db = getDB();
-  var u = db.usuarios.find(function(u){ return u.id === currentUser.id; });
-  if (u) { u.senha = newP; setDB(db); currentUser.senha = newP; localStorage.setItem('fincontrol_current_user', JSON.stringify(currentUser)); }
+  if (u) { u.senhaHash = await hashSenha(newP); delete u.senha; setDB(db); localStorage.setItem('fincontrol_current_user', JSON.stringify(currentUser)); }
   ['oldP','newP','confP'].forEach(function(id){ document.getElementById(id).value = ''; });
   toast('Senha alterada com sucesso!', 'ok');
 }
 
-// Atualiza label do mês no dashboard card
-(function() {
-  var el = document.getElementById('dashMes');
-  if (el) {
-    var d = new Date();
-    var label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    el.textContent = label.charAt(0).toUpperCase() + label.slice(1);
-  }
-  var badge = document.getElementById('donutMesBadge');
-  if (badge) {
-    var d2 = new Date();
-    badge.textContent = d2.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
-  }
-})();
 </script>
 </body>
 </html>
+
+
+
+

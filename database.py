@@ -12,8 +12,15 @@ import redis
 import json
 import hashlib
 import uuid
+import sys
 from datetime import datetime, timedelta
 from typing import Optional
+try:
+    from flask import Flask, jsonify, request
+    from flask_cors import CORS
+except ImportError:
+    Flask = None
+    CORS = None
 
 # ────────────────────────────────────────────────────────────
 # Conexão
@@ -120,6 +127,46 @@ def verificar_sessao(r: redis.Redis, token: str) -> Optional[str]:
 def encerrar_sessao(r: redis.Redis, token: str):
     """Remove o token de sessão (logout)."""
     r.delete(f"sessao:{token}")
+
+
+def criar_api() -> "Flask":
+    """Cria uma API REST simples para o frontend consumir o Redis."""
+    if Flask is None:
+        raise RuntimeError("Instale flask e flask-cors: pip install flask flask-cors")
+
+    app = Flask(__name__)
+    CORS(app)
+    r = conectar()
+
+    @app.get("/api/health")
+    def health():
+        return jsonify({"ok": True, "db": "redis"})
+
+    @app.post("/api/auth/register")
+    def api_register():
+        data = request.get_json(force=True) or {}
+        try:
+            usuario = criar_usuario(r, data["nome"], data["email"], data["senha"], data.get("role", "user"))
+            return jsonify(usuario), 201
+        except KeyError:
+            return jsonify({"erro": "nome, email e senha sao obrigatorios"}), 400
+        except ValueError as exc:
+            return jsonify({"erro": str(exc)}), 409
+
+    @app.post("/api/auth/login")
+    def api_login():
+        data = request.get_json(force=True) or {}
+        usuario = login(r, data.get("email", ""), data.get("senha", ""))
+        if not usuario:
+            return jsonify({"erro": "credenciais invalidas"}), 401
+        token = criar_sessao(r, usuario["id"])
+        return jsonify({"usuario": usuario, "token": token})
+
+    @app.get("/api/usuarios")
+    def api_usuarios():
+        return jsonify(listar_usuarios(r))
+
+    return app
 
 
 def listar_usuarios(r: redis.Redis) -> list:
@@ -447,6 +494,9 @@ def seed_demo(r: redis.Redis):
 # ────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "api":
+        criar_api().run(host="127.0.0.1", port=5000, debug=True)
+        raise SystemExit
     try:
         r = conectar()
         print("Conectado ao Redis com sucesso!")

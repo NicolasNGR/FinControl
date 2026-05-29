@@ -1,23 +1,54 @@
 {
-  "descricao": "Banco de dados modelo para o FinControl. No GitHub Pages os dados reais são salvos no localStorage do navegador, pois páginas estáticas não possuem servidor para gravar em banco real.",
-  "collections": {
-    "usuarios": [
-      {"_id": "ObjectId", "nome": "String", "email": "String", "senha": "String", "role": "String", "ativo": "Boolean", "criado_em": "Date", "atualizado_em": "Date"}
-    ],
-    "categorias": [
-      {"_id": "ObjectId", "usuario_id": "ObjectId", "nome": "String", "icone": "String/Object", "cor": "String", "padrao": "Boolean", "criado_em": "Date"}
-    ],
-    "lancamentos": [
-      {"_id": "ObjectId", "usuario_id": "ObjectId", "categoria_id": "ObjectId", "descricao": "String", "valor": "Number", "tipo": "String", "data": "Date", "observacao": "String", "criado_em": "Date", "atualizado_em": "Date"}
-    ],
-    "metas": [
-      {"_id": "ObjectId", "usuario_id": "ObjectId", "nome": "String", "valor_total": "Number", "valor_atual": "Number", "data_alvo": "Date", "descricao": "String", "status": "String", "criado_em": "Date", "atualizado_em": "Date"}
-    ],
-    "alertas": [
-      {"_id": "ObjectId", "usuario_id": "ObjectId", "tipo": "String", "titulo": "String", "mensagem": "String", "lido": "Boolean", "referencia": "Object", "criado_em": "Date"}
-    ],
-    "configuracoes": [
-      {"_id": "ObjectId", "usuario_id": "ObjectId", "email_semanal": "Boolean", "alerta_gastos": "Boolean", "push": "Boolean", "limite_alerta_pct": "Number", "moeda": "String", "atualizado_em": "Date"}
+  "tipo": "Redis",
+  "descricao": "Schema lógico usado por database.py. O frontend estatico ainda usa localStorage como fallback de demonstracao.",
+  "chaves": {
+    "emails": {
+      "tipo": "Hash",
+      "campos": {
+        "email": "usuario_id"
+      }
+    },
+    "usuario:{id}": {
+      "tipo": "Hash",
+      "campos": {
+        "id": "String",
+        "nome": "String",
+        "email": "String",
+        "senha": "SHA-256",
+        "role": "user|admin",
+        "ativo": "true|false",
+        "criado_em": "ISO datetime"
+      }
+    },
+    "sessao:{token}": {
+      "tipo": "String",
+      "valor": "usuario_id",
+      "ttl": "24 horas"
+    },
+    "usuario:{id}:lancamentos": {
+      "tipo": "Set",
+      "valor": "ids dos lancamentos do usuario"
+    },
+    "lancamento:{id}": {
+      "tipo": "Hash",
+      "campos": {
+        "id": "String",
+        "usuario_id": "String",
+        "descricao": "String",
+        "categoria_id": "String",
+        "tipo": "receita|despesa",
+        "valor": "Number",
+        "data": "YYYY-MM-DD"
+      }
+    }
+  },
+  "api": {
+    "iniciar": "python database.py api",
+    "endpoints": [
+      "GET /api/health",
+      "POST /api/auth/register",
+      "POST /api/auth/login",
+      "GET /api/usuarios"
     ]
   }
 }

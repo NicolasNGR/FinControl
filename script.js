@@ -116,15 +116,21 @@ var filterMonth = new Date().toISOString().slice(0,7);
 var fQ='';
 
 // ── LOCALSTORAGE DATABASE + AUTH ─────────────────────────────────
-var DB_KEY = 'fincontrol_bd_v3';
+var DB_KEY = 'fincontrol_bd_v4';
+var API_URL = 'http://127.0.0.1:5000/api';
 var currentUser = null;
 
 function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
+async function hashSenha(senha){
+  var data = new TextEncoder().encode(senha);
+  var hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
 function defaultDB(){
   return {
     usuarios:[
-      {id:1,nome:'Lucas Demo',email:'lucas@email.com',senha:'123456',role:'user',ativo:true,criado_em:new Date().toISOString()},
-      {id:2,nome:'Administrador',email:'admin@fincontrol.com',senha:'admin123',role:'admin',ativo:true,criado_em:new Date().toISOString()}
+      {id:1,nome:'Lucas Demo',email:'lucas@email.com',senhaHash:'8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',role:'user',ativo:true,criado_em:new Date().toISOString()},
+      {id:2,nome:'Administrador',email:'admin@fincontrol.com',senhaHash:'240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',role:'admin',ativo:true,criado_em:new Date().toISOString()}
     ],
     categorias: clone(categorias),
     lancamentos: clone(lancamentos),
@@ -143,6 +149,18 @@ function getDB(){
   }
 }
 function setDB(db){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+async function migratePasswords(db){
+  var changed = false;
+  for(var i=0;i<(db.usuarios||[]).length;i++){
+    var u = db.usuarios[i];
+    if(u.senha && !u.senhaHash){
+      u.senhaHash = await hashSenha(u.senha);
+      delete u.senha;
+      changed = true;
+    }
+  }
+  if(changed) setDB(db);
+}
 function loadUserData(){
   var db = getDB();
   categorias = db.categorias && db.categorias.length ? db.categorias : clone(defaultDB().categorias);
@@ -156,36 +174,60 @@ function persistDB(){
   db.metas = metas;
   setDB(db);
 }
+function sanitizeUser(user){
+  var clean = Object.assign({}, user);
+  delete clean.senha;
+  delete clean.senhaHash;
+  return clean;
+}
+function updateUserUI(){
+  if(!currentUser) return;
+  var iniciais = (currentUser.nome || '?').split(' ').filter(Boolean).map(function(w){return w[0]}).slice(0,2).join('').toUpperCase();
+  document.querySelectorAll('.user-av').forEach(function(el){ el.textContent = iniciais; });
+  document.querySelectorAll('.user-name').forEach(function(el){ el.textContent = currentUser.nome || ''; });
+  document.querySelectorAll('.user-role').forEach(function(el){ el.textContent = currentUser.role === 'admin' ? 'Administrador' : 'Usuário padrão'; });
+  var pa = document.getElementById('perfilAvatar'); if(pa) pa.textContent = iniciais;
+  var pn = document.getElementById('perfilNomeDisplay'); if(pn) pn.textContent = currentUser.nome || '';
+  var pe = document.getElementById('perfilEmailDisplay'); if(pe) pe.textContent = currentUser.email || '';
+  var profNome = document.getElementById('profNome'); if(profNome) profNome.value = currentUser.nome || '';
+  var profEmail = document.getElementById('profEmail'); if(profEmail) profEmail.value = currentUser.email || '';
+  var adminNav = document.getElementById('nav-admin'); if(adminNav) adminNav.style.display = currentUser.role === 'admin' ? '' : 'none';
+}
 function finishAuth(user){
-  currentUser = user;
-  localStorage.setItem('fincontrol_current_user', JSON.stringify(user));
+  currentUser = sanitizeUser(user);
+  localStorage.setItem('fincontrol_current_user', JSON.stringify(currentUser));
   loadUserData();
   document.getElementById('authWrap').style.display='none';
   document.getElementById('appWrap').style.display='block';
   if(document.getElementById('lData')) document.getElementById('lData').value=new Date().toISOString().split('T')[0];
 
   // Atualiza nome/avatar no sidebar
-  var av = document.getElementById('sbAvatar');
-  var nm = document.getElementById('sbNome');
-  var rl = document.getElementById('sbRole');
-  if(av && user.nome) av.textContent = user.nome.split(' ').map(function(w){return w[0]}).slice(0,2).join('').toUpperCase();
-  if(nm) nm.textContent = user.nome || '';
-  if(rl) rl.textContent = user.role === 'admin' ? 'Administrador' : 'Usuário padrão';
-
+  updateUserUI();
   renderAll();
   var iconTab = document.querySelector('.ist');
   if(iconTab) loadSet('finance', iconTab);
   toast('Login realizado com sucesso!','ok');
 }
-function doLogin(){
+async function doLogin(){
   var email = (document.getElementById('loginEmail')?.value || '').trim().toLowerCase();
   var senha = document.getElementById('loginPass')?.value || '';
+  try{
+    var res = await fetch(API_URL+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,senha:senha})});
+    if(res.ok){
+      var remote = await res.json();
+      localStorage.setItem('fincontrol_api_token', remote.token);
+      finishAuth(remote.usuario);
+      return;
+    }
+  }catch(e){}
   var db = getDB();
-  var user = db.usuarios.find(function(u){return u.email.toLowerCase()===email && u.senha===senha && u.ativo!==false;});
+  await migratePasswords(db);
+  var senhaHash = await hashSenha(senha);
+  var user = db.usuarios.find(function(u){return u.email.toLowerCase()===email && u.senhaHash===senhaHash && u.ativo!==false;});
   if(!user){ toast('E-mail ou senha inválidos.','err'); return; }
   finishAuth(user);
 }
-function doRegister(){
+async function doRegister(){
   var nome = (document.getElementById('regName')?.value || '').trim();
   var email = (document.getElementById('regEmail')?.value || '').trim().toLowerCase();
   var p1 = document.getElementById('regP1')?.value || '';
@@ -196,9 +238,13 @@ function doRegister(){
   if(p1.length < 6){ toast('A senha deve ter pelo menos 6 caracteres.','err'); return; }
   if(p1 !== p2){ toast('As senhas não conferem.','err'); return; }
   if(!terms){ toast('Você precisa aceitar os termos para continuar.','err'); return; }
+  try{
+    var res = await fetch(API_URL+'/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome:nome,email:email,senha:p1})});
+    if(res.ok){ finishAuth(await res.json()); return; }
+  }catch(e){}
   var db = getDB();
   if(db.usuarios.some(function(u){return u.email.toLowerCase()===email;})){ toast('Este e-mail já está cadastrado.','err'); return; }
-  var user = {id:Date.now(), nome:nome, email:email, senha:p1, role:'user', ativo:true, criado_em:new Date().toISOString()};
+  var user = {id:Date.now(), nome:nome, email:email, senhaHash:await hashSenha(p1), role:'user', ativo:true, criado_em:new Date().toISOString()};
   db.usuarios.push(user);
   setDB(db);
   finishAuth(user);
@@ -216,8 +262,15 @@ function googleLoginDemo(){
   toast('Login com Google não está disponível nesta versão de demonstração.','');
 }
 
+
+function forgotPassword(e){
+  if(e) e.preventDefault();
+  var email = (document.getElementById('loginEmail')?.value || '').trim();
+  toast(email ? 'Instrucao de recuperacao enviada para '+email+'.' : 'Informe seu e-mail para recuperar a senha.','');
+}
 window.addEventListener('DOMContentLoaded', function(){
   getDB();
+  updateSidebarState();
   try{
     var saved = JSON.parse(localStorage.getItem('fincontrol_current_user') || 'null');
     if(saved && saved.email) finishAuth(saved);
@@ -262,43 +315,66 @@ function toggleSidebar(){
   var open=s.classList.toggle('open');
   o.classList.toggle('open',open);
   b.setAttribute('aria-expanded',open?'true':'false');
+  updateSidebarState();
 }
 function closeSidebar(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sideOverlay').classList.remove('open');
   document.getElementById('menuBtn').setAttribute('aria-expanded','false');
+  updateSidebarState();
+}
+function updateSidebarState(){
+  var s=document.getElementById('sidebar');
+  var mobile = window.matchMedia('(max-width: 960px)').matches;
+  var hidden = mobile && !s.classList.contains('open');
+  s.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  if(hidden) s.setAttribute('inert',''); else s.removeAttribute('inert');
 }
 
 // ── RENDER ALL ────────────────────────────────────────────────────
-function renderAll(){ renderLanc(); renderCat(); renderMetas(); atualizarCards(); atualizarSelectMes(); updateCatSel(); }
+function renderAll(){ renderLanc(); renderCat(); renderMetas(); atualizarCards(); atualizarSelectMes(); updateCatSel(); renderDonut(); renderBarChart(); renderAdmin(); }
 
 // ── ICON SVG helper ───────────────────────────────────────────────
 function icoSvg(p,size,color){size=size||20;color=color||'currentColor';return'<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="'+color+'"><path d="'+p+'"/></svg>';}
 
+function getMesReferencia(){
+  var atual = new Date().toISOString().slice(0,7);
+  if(lancamentos.some(function(l){ return l.data && l.data.startsWith(atual); })) return atual;
+  var meses = lancamentos.map(function(l){ return l.data ? l.data.slice(0,7) : ''; }).filter(Boolean).sort();
+  return meses.length ? meses[meses.length-1] : atual;
+}
+
+function labelMes(mes, opts){
+  var d = new Date(mes+'-01T12:00:00');
+  return d.toLocaleDateString('pt-BR', opts || {month:'long',year:'numeric'}).replace(/^./, function(c){ return c.toUpperCase(); });
+}
+
 // ── FIX #5: CARDS DO DASHBOARD DINÂMICOS ─────────────────────────
 function atualizarCards(){
-  var mes = new Date().toISOString().slice(0,7);
-  var lancMes = lancamentos.filter(function(l){ return l.data.startsWith(mes); });
+  var mes = getMesReferencia();
+  var lancMes = lancamentos.filter(function(l){ return l.data && l.data.startsWith(mes); });
   var inc = lancMes.filter(function(l){ return l.val > 0; }).reduce(function(s,l){ return s+l.val; },0);
   var exp = lancMes.filter(function(l){ return l.val < 0; }).reduce(function(s,l){ return s+Math.abs(l.val); },0);
   var saldo = inc - exp;
   var pct = inc > 0 ? ((saldo/inc)*100).toFixed(1) : '0,0';
 
-  var elSaldo = document.getElementById('cardSaldo');
-  var elInc   = document.getElementById('cardReceita');
-  var elExp   = document.getElementById('cardDespesa');
-  var elPct   = document.getElementById('cardEconomia');
-  var elEcoMeta = document.getElementById('cardEconomiaMeta');
+  var elSaldo = document.getElementById('dashSaldo');
+  var elInc   = document.getElementById('dashReceitas');
+  var elExp   = document.getElementById('dashDespesas');
+  var elPct   = document.getElementById('dashEconomia');
+  var elEcoMeta = document.getElementById('dashEconomiaVal');
 
   if(elSaldo) elSaldo.textContent = 'R$ '+fmtBRL(saldo);
   if(elInc)   elInc.textContent   = 'R$ '+fmtBRL(inc);
   if(elExp)   elExp.textContent   = 'R$ '+fmtBRL(exp);
   if(elPct)   elPct.textContent   = pct.replace('.',',')+'%';
   if(elEcoMeta) elEcoMeta.textContent = 'R$ '+fmtBRL(saldo)+' guardados';
+  setText('dashMes', labelMes(mes));
+  setText('donutMesBadge', labelMes(mes, {month:'short',year:'numeric'}));
 
   // Atualiza badges de variação (comparação com mês anterior)
   var mesAnterior = new Date(new Date().setMonth(new Date().getMonth()-1)).toISOString().slice(0,7);
-  var lancAnt = lancamentos.filter(function(l){ return l.data.startsWith(mesAnterior); });
+  var lancAnt = lancamentos.filter(function(l){ return l.data && l.data.startsWith(mesAnterior); });
   var incAnt = lancAnt.filter(function(l){ return l.val>0; }).reduce(function(s,l){ return s+l.val; },0);
   var expAnt = lancAnt.filter(function(l){ return l.val<0; }).reduce(function(s,l){ return s+Math.abs(l.val); },0);
 
@@ -325,7 +401,7 @@ function atualizarSelectMes(){
   });
   meses.sort().reverse();
 
-  var sel = document.getElementById('selectMes');
+  var sel = document.getElementById('filterMes');
   if(!sel) return;
   var cur = sel.value || filterMonth;
   sel.innerHTML = '<option value="">Todos os meses</option>' +
@@ -335,6 +411,97 @@ function atualizarSelectMes(){
       label = label.charAt(0).toUpperCase() + label.slice(1);
       return '<option value="'+m+'"'+(m===cur?' selected':'')+'>'+label+'</option>';
     }).join('');
+}
+
+function renderDonut(){
+  var svg = document.getElementById('donutSvg');
+  var leg = document.getElementById('donutLeg');
+  var totalEl = document.getElementById('donutTotal');
+  if(!svg || !leg || !totalEl) return;
+  var mes = getMesReferencia();
+  var porCat = {};
+  lancamentos.filter(function(l){ return l.data && l.data.startsWith(mes) && l.val < 0; }).forEach(function(l){
+    porCat[l.cat] = (porCat[l.cat] || 0) + Math.abs(l.val);
+  });
+  var itens = Object.keys(porCat).map(function(nome){
+    var c = getCat(nome);
+    return {nome:nome, valor:porCat[nome], cor:c.cor};
+  }).sort(function(a,b){ return b.valor-a.valor; });
+  var total = itens.reduce(function(s,i){ return s+i.valor; },0);
+  svg.innerHTML = '<title>Gastos por categoria</title><circle cx="65" cy="65" r="50" fill="none" stroke="#F0F4F8" stroke-width="24"/>';
+  totalEl.textContent = 'R$ '+fmtBRL(total);
+  if(!total){
+    leg.innerHTML = '<div class="dl-item" style="color:var(--t3)">Sem despesas no mês</div>';
+    return;
+  }
+  var r = 50, circ = 2 * Math.PI * r, offset = 0;
+  itens.forEach(function(item){
+    var dash = (item.valor / total) * circ;
+    var circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circle.setAttribute('cx','65');
+    circle.setAttribute('cy','65');
+    circle.setAttribute('r',String(r));
+    circle.setAttribute('fill','none');
+    circle.setAttribute('stroke',item.cor);
+    circle.setAttribute('stroke-width','24');
+    circle.setAttribute('stroke-dasharray',dash+' '+(circ-dash));
+    circle.setAttribute('stroke-dashoffset',String(-offset));
+    circle.setAttribute('transform','rotate(-90 65 65)');
+    circle.setAttribute('aria-label',item.nome+': R$ '+fmtBRL(item.valor));
+    svg.appendChild(circle);
+    offset += dash;
+  });
+  leg.innerHTML = itens.map(function(item){
+    var pct = Math.round((item.valor/total)*100);
+    return '<div class="dl-item"><span class="dl-dot" style="background:'+item.cor+'"></span><span class="dl-name">'+item.nome+'</span><span class="dl-pct">'+pct+'%</span></div>';
+  }).join('');
+}
+
+function renderBarChart(){
+  var chart = document.getElementById('barChart');
+  var labels = document.getElementById('barLabels');
+  if(!chart || !labels) return;
+  var base = getMesReferencia();
+  var parts = base.split('-').map(Number);
+  var now = new Date(parts[0], parts[1]-1, 1);
+  var meses = [];
+  for(var i=5;i>=0;i--){
+    var d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    var key = d.toISOString().slice(0,7);
+    var inc = lancamentos.filter(function(l){return l.data && l.data.startsWith(key) && l.val>0;}).reduce(function(s,l){return s+l.val;},0);
+    var exp = lancamentos.filter(function(l){return l.data && l.data.startsWith(key) && l.val<0;}).reduce(function(s,l){return s+Math.abs(l.val);},0);
+    meses.push({key:key,label:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),inc:inc,exp:exp});
+  }
+  var max = Math.max.apply(null, meses.map(function(m){return Math.max(m.inc,m.exp,1);}));
+  chart.innerHTML = meses.map(function(m,idx){
+    var incH = Math.max(4, Math.round((m.inc/max)*100));
+    var expH = Math.max(4, Math.round((m.exp/max)*100));
+    var cur = m.key===base ? ' cur' : '';
+    return '<div class="bar-group"><div class="bar inc'+cur+'" style="height:'+incH+'%"><span class="bar-tip">Receita: R$ '+fmtBRL(m.inc)+'</span></div><div class="bar exp'+cur+'" style="height:'+expH+'%"><span class="bar-tip">Despesa: R$ '+fmtBRL(m.exp)+'</span></div></div>';
+  }).join('');
+  labels.innerHTML = meses.map(function(m){return '<span class="cl'+(m.key===base?' cur':'')+'">'+m.label+'</span>';}).join('');
+}
+
+function renderAdmin(){
+  var users = document.getElementById('adminUsers');
+  if(!users) return;
+  var db = getDB();
+  var ativos = (db.usuarios||[]).filter(function(u){return u.ativo!==false;}).length;
+  var hoje = new Date().toISOString().slice(0,10);
+  var lancHoje = lancamentos.filter(function(l){return l.data===hoje;}).length;
+  setText('adminUsersActive', ativos);
+  setText('adminLancToday', lancHoje);
+  setText('adminMetasTotal', metas.length);
+  users.innerHTML = (db.usuarios||[]).map(function(u){
+    var ativo = u.ativo!==false;
+    return '<tr><td>'+u.nome+'</td><td><span class="badge '+(ativo?'b-g':'b-gr')+'">'+(ativo?'Ativo':'Inativo')+'</span></td><td>'+new Date(u.criado_em).toLocaleDateString('pt-BR')+'</td><td class="actions" style="justify-content:center"><button class="btn '+(ativo?'btn-d':'btn-p')+' btn-sm" onclick="toggleUserActive('+u.id+')">'+(ativo?'Desativar':'Ativar')+'</button></td></tr>';
+  }).join('');
+}
+function setText(id,text){ var el=document.getElementById(id); if(el) el.textContent=text; }
+function toggleUserActive(id){
+  var db = getDB();
+  var u = db.usuarios.find(function(x){return x.id===id;});
+  if(u){ u.ativo = u.ativo===false; setDB(db); renderAdmin(); toast('Usuario atualizado.','ok'); }
 }
 
 // ── LANÇAMENTOS ───────────────────────────────────────────────────
@@ -369,8 +536,8 @@ function renderLanc(){
     var dt=new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});
     return '<tr><td><div class="tx-row"><div class="tx-ico" style="background:'+bg+'">'+icoSvg(c.icon.p,18,c.cor)+'</div><div><div class="tx-n">'+l.desc+'</div><div class="tx-c">'+l.cat+'</div></div></div></td><td style="color:var(--t2)">'+l.cat+'</td><td style="color:var(--t2)">'+dt+'</td><td>'+badge+'</td><td class="'+cls+'" style="text-align:right">'+sign+'R$ '+fmtBRL(fv)+'</td><td><div class="actions" style="justify-content:center"><button class="btn btn-d btn-sm" onclick="delLanc('+l.id+')" aria-label="Excluir '+l.desc+'">'+icoSvg('M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',13)+' Excluir</button></div></td></tr>';
   }).join('');
-  // tabela do dashboard (últimos 6 do mês atual)
-  var mesAtual = new Date().toISOString().slice(0,7);
+  // tabela do dashboard (últimos 6 do mês de referência)
+  var mesAtual = getMesReferencia();
   var recentes = lancamentos.filter(function(l){ return l.data.startsWith(mesAtual); }).slice(0,6);
   document.getElementById('dashTx').innerHTML=recentes.map(function(l){
     var c=getCat(l.cat);var bg=c.cor+'22';
@@ -497,8 +664,8 @@ function pickIcon(el,id,p,label){
 }
 function setColor(el,c){
   selectedColor=c;
-  document.querySelectorAll('.csw').forEach(function(s){s.classList.remove('sel');});
-  el.classList.add('sel');
+  document.querySelectorAll('.csw').forEach(function(s){s.classList.remove('sel');s.setAttribute('aria-pressed','false');});
+  el.classList.add('sel'); el.setAttribute('aria-pressed','true');
   if(selIcon)document.getElementById('ipIcoPreview').innerHTML=icoSvg(selIcon.p,20,c);
 }
 
@@ -576,7 +743,15 @@ function openModal(id){
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 function bdClose(e,id){if(e.target.id===id)closeModal(id);}
 document.addEventListener('keydown',function(e){
+  var open = document.querySelector('.modal-bd.open');
   if(e.key==='Escape') document.querySelectorAll('.modal-bd.open').forEach(function(m){m.classList.remove('open');});
+  if(e.key==='Tab' && open){
+    var items = open.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+    if(!items.length) return;
+    var first = items[0], last = items[items.length-1];
+    if(e.shiftKey && document.activeElement===first){ last.focus(); e.preventDefault(); }
+    else if(!e.shiftKey && document.activeElement===last){ first.focus(); e.preventDefault(); }
+  }
 });
 
 // ── TOAST ─────────────────────────────────────────────────────────
@@ -595,5 +770,28 @@ function toast(msg,type){
   setTimeout(function(){t.classList.remove('show');setTimeout(function(){if(c.contains(t))c.removeChild(t);},350);},3200);
 }
 
+function setFieldError(id,msg){
+  var el=document.getElementById(id);
+  if(!el) return;
+  var errId=id+'Err';
+  var err=document.getElementById(errId);
+  if(!err){
+    err=document.createElement('div');
+    err.id=errId;
+    err.className='field-error';
+    el.insertAdjacentElement('afterend',err);
+  }
+  err.textContent=msg;
+  el.setAttribute('aria-invalid','true');
+  el.setAttribute('aria-describedby',errId);
+}
+function clearFieldError(id){
+  var el=document.getElementById(id), err=document.getElementById(id+'Err');
+  if(el){ el.removeAttribute('aria-invalid'); el.removeAttribute('aria-describedby'); }
+  if(err) err.remove();
+}
+
 // ── UTIL ──────────────────────────────────────────────────────────
 function fmtBRL(v){ return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2}); }
+
+
